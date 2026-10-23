@@ -83,14 +83,25 @@ class _LoginPageState extends State<LoginPage> {
           builder: (_) => const HomePage(),
         ),
       );
-    } on DioException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        errorText = e.response?.statusCode == 401
-            ? 'Login gagal. Periksa email dan kata sandi.'
-            : 'Tidak dapat login. Periksa koneksi atau server.';
-      });
-    } catch (_) {
+    } on DioExceptioncatch (e) {
+  String pesan;
+
+  if (e is DioException) {
+    if (e.response != null) {
+      pesan =
+          'HTTP ${e.response!.statusCode}: '
+          '${e.response!.data}';
+    } else {
+      pesan = 'Koneksi gagal: ${e.message}';
+    }
+  } else {
+    pesan = e.toString();
+  }
+
+  setState(() {
+    errorMessage = pesan;
+  });
+} catch (_) {
       if (!mounted) return;
       setState(() => errorText = 'Terjadi kesalahan saat login.');
     } finally {
