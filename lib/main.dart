@@ -27,7 +27,171 @@ class VisualMathApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: primaryBlue),
         fontFamily: 'Roboto',
       ),
-      home: const HomePage(),
+      home: const LoginPage(),
+    );
+  }
+}
+
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final VisualMathApi api = VisualMathApi();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool isLoading = false;
+  bool isPasswordVisible = false;
+  String errorText = '';
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> login() async {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.isEmpty) {
+      setState(() => errorText = 'Email dan kata sandi wajib diisi.');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      errorText = '';
+    });
+
+    try {
+      await api.login(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HomePage(),
+        ),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        errorText = e.response?.statusCode == 401
+            ? 'Login gagal. Periksa email dan kata sandi.'
+            : 'Tidak dapat login. Periksa koneksi atau server.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => errorText = 'Terjadi kesalahan saat login.');
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Login VisualMath AI'),
+        backgroundColor: Colors.white,
+        foregroundColor: darkNavy,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SizedBox(height: 35),
+            const Icon(
+              Icons.functions_rounded,
+              size: 72,
+              color: primaryBlue,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Selamat Datang!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: darkNavy,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Login untuk mulai belajar matematika bersama AI.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 30),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: !isPasswordVisible,
+              decoration: InputDecoration(
+                labelText: 'Kata sandi',
+                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isPasswordVisible = !isPasswordVisible;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (errorText.isNotEmpty) ...[
+              Text(
+                errorText,
+                style: const TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 12),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                ),
+                child: Text(
+                  isLoading ? 'Sedang login...' : 'Login',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

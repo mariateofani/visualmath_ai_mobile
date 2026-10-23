@@ -7,21 +7,31 @@ class VisualMathApi {
   static const String baseUrl =
       'https://visualmath-ai-phi.vercel.app';
 
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 60),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ),
-  );
+  static final VisualMathApi _instance =
+      VisualMathApi._internal();
 
-  VisualMathApi() {
+  factory VisualMathApi() => _instance;
+
+  late final Dio _dio;
+  late final CookieJar _cookieJar;
+
+  VisualMathApi._internal() {
+    _cookieJar = CookieJar();
+
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 60),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
     _dio.interceptors.add(
-      CookieManager(CookieJar()),
+      CookieManager(_cookieJar),
     );
   }
 
