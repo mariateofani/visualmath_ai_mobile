@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'services/visualmath_api.dart';
 import 'package:dio/dio.dart';
 
+
 void main() {
   runApp(const VisualMathApp());
 }
@@ -188,6 +189,25 @@ class _LoginPageState extends State<LoginPage> {
                   isLoading ? 'Sedang login...' : 'Login',
                 ),
               ),
+            ),
+            
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Belum punya akun?'),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterPage(),
+                      ),
+                    );
+                  },
+                  child: const Text('Daftar sekarang'),
+                ),
+              ],
             ),
           ],
         ),
@@ -779,105 +799,57 @@ class SimplePage extends StatelessWidget {
   }
 }
   
+
 class FeaturePage extends StatefulWidget {
+  final String title;
+
   const FeaturePage({
     super.key,
     required this.title,
   });
-
-  final String title;
 
   @override
   State<FeaturePage> createState() => _FeaturePageState();
 }
 
 class _FeaturePageState extends State<FeaturePage> {
-  // Satu instance dipakai untuk login dan mengirim soal,
-  // supaya cookie sesi yang sama tetap digunakan.
   final VisualMathApi api = VisualMathApi();
+  final TextEditingController questionController =
+      TextEditingController();
 
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-  final questionController = TextEditingController();
-
-  bool isLoggedIn = false;
   bool isLoading = false;
-  String resultText = '';
-  String errorText = '';
-  bool isPasswordVisible = false;
+  String? resultText;
+  String? errorText;
+
+  bool get isMathExplainer => widget.title == 'AI Math Explainer';
 
   @override
   void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
     questionController.dispose();
     super.dispose();
   }
 
-  Future<void> login() async {
-    if (emailController.text.trim().isEmpty ||
-        passwordController.text.isEmpty) {
-      setState(() {
-        errorText = 'Email dan kata sandi wajib diisi.';
-      });
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-      errorText = '';
-      resultText = '';
-    });
-
-    try {
-      await api.login(
-        email: emailController.text.trim(),
-        password: passwordController.text,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        isLoggedIn = true;
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        errorText = e.response?.statusCode == 401
-            ? 'Login gagal. Periksa email dan kata sandi.'
-            : 'Tidak dapat login. Periksa koneksi atau server.';
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        errorText = 'Terjadi kesalahan saat login.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
-
   Future<void> analyzeQuestion() async {
-    final question = questionController.text.trim();
+    final expression = questionController.text.trim();
 
-    if (question.isEmpty) {
+    if (expression.isEmpty) {
       setState(() {
-        errorText = 'Masukkan soal terlebih dahulu.';
+        errorText = 'Masukkan ekspresi matematika terlebih dahulu.';
+        resultText = null;
       });
       return;
     }
 
+    FocusScope.of(context).unfocus();
+
     setState(() {
       isLoading = true;
-      errorText = '';
-      resultText = '';
+      errorText = null;
+      resultText = null;
     });
 
     try {
-      final result = await api.analyzeFormula(question);
+      final result = await api.analyzeFormula(expression);
 
       if (!mounted) return;
 
@@ -888,24 +860,61 @@ class _FeaturePageState extends State<FeaturePage> {
       if (!mounted) return;
 
       setState(() {
-        if (e.response?.statusCode == 401) {
-          errorText = 'Sesi login tidak valid. Silakan login kembali.';
-          isLoggedIn = false;
+        final statusCode = e.response?.statusCode;
+
+        if (statusCode == 401 || statusCode == 403) {
+          errorText =
+              'Akses ditolak atau sesi tidak valid. Silakan login kembali.';
+        } else if (e.response != null) {
+          errorText =
+              'Server gagal memproses ekspresi (HTTP $statusCode).';
         } else {
           errorText =
-              'Soal belum berhasil diproses. Periksa koneksi dan format soal.';
+              'Tidak dapat terhubung ke server. Periksa koneksi internet.';
         }
       });
     } catch (_) {
       if (!mounted) return;
 
       setState(() {
-        errorText = 'Terjadi kesalahan saat memproses soal.';
+        errorText = 'Terjadi kesalahan saat membaca respons server.';
       });
     } finally {
       if (mounted) {
-        setState(() => isLoading = false);
+        setState(() {
+          isLoading = false;
+        });
       }
+    }
+  }
+
+  String get featureDescription {
+    switch (widget.title) {
+      case 'Grafik Interaktif':
+        return 'Fitur grafik akan tersedia setelah mesin grafik terhubung.';
+      case 'Scan Soal':
+        return 'Fitur pemindaian soal akan tersedia setelah integrasi kamera dan OCR.';
+      case 'Notifikasi':
+        return 'Notifikasi akan ditampilkan setelah layanan notifikasi terhubung.';
+      case 'Latihan Soal':
+        return 'Latihan soal akan tersedia setelah materi dan layanan latihan terhubung.';
+      default:
+        return 'Fitur ini belum terhubung ke layanan backend.';
+    }
+  }
+
+  IconData get featureIcon {
+    switch (widget.title) {
+      case 'Grafik Interaktif':
+        return Icons.show_chart_rounded;
+      case 'Scan Soal':
+        return Icons.camera_alt_rounded;
+      case 'Notifikasi':
+        return Icons.notifications_none_rounded;
+      case 'Latihan Soal':
+        return Icons.edit_note_rounded;
+      default:
+        return Icons.construction_rounded;
     }
   }
 
@@ -922,80 +931,83 @@ class _FeaturePageState extends State<FeaturePage> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text(
-              isLoggedIn ? widget.title : 'Login VisualMath AI',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: darkNavy,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              isLoggedIn
-                  ? 'Masukkan ekspresi matematika untuk dianalisis.'
-                  : 'Login menggunakan akun website VisualMath AI.',
-              style: const TextStyle(color: Colors.blueGrey),
-            ),
-            const SizedBox(height: 20),
-
-            if (!isLoggedIn) ...[
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
+            if (isMathExplainer) ...[
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: lightBlue,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: passwordController,
-                obscureText: !isPasswordVisible,
-                decoration: InputDecoration(
-                  labelText: 'Kata sandi',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      isPasswordVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility,
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      color: primaryBlue,
+                      size: 34,
+                    ),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AI Math Explainer',
+                            style: TextStyle(
+                              color: darkNavy,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Masukkan ekspresi matematika untuk dikirim ke server.',
+                            style: TextStyle(
+                              color: Color(0xFF687991),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
                       ),
-                    onPressed: () {
-                      setState(() {isPasswordVisible = !isPasswordVisible;});
-                      },
-                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(16),
-                  ),
-                  child: Text(isLoading ? 'Sedang login...' : 'Login'),
+              const SizedBox(height: 24),
+              const Text(
+                'Ekspresi Matematika',
+                style: TextStyle(
+                  color: darkNavy,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
-            ] else ...[
+              const SizedBox(height: 10),
               TextField(
                 controller: questionController,
-                maxLines: 3,
+                enabled: !isLoading,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!isLoading) {
+                    analyzeQuestion();
+                  }
+                },
                 decoration: InputDecoration(
-                  labelText: 'Soal matematika',
                   hintText: 'Contoh: x^2 + 3*x',
+                  helperText:
+                      'Masukkan ekspresi yang didukung oleh backend.',
+                  filled: true,
+                  fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  filled: true,
-                  fillColor: Colors.white,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFE0E8F5),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1003,51 +1015,117 @@ class _FeaturePageState extends State<FeaturePage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: isLoading ? null : analyzeQuestion,
-                  icon: const Icon(Icons.auto_awesome),
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
                   label: Text(
-                    isLoading ? 'Sedang memproses...' : 'Pelajari Soal',
+                    isLoading ? 'Memproses...' : 'Proses Ekspresi',
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(16),
+                    disabledBackgroundColor: Colors.blueGrey,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
-            ],
-
-            if (errorText.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                errorText,
-                style: const TextStyle(color: Colors.red),
-              ),
-            ],
-
-            if (resultText.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const Text(
-                'Respons dari server',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: darkNavy,
+              if (errorText != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEEEE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    errorText!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFEAF0FA)),
+              ],
+              if (resultText != null) ...[
+                const SizedBox(height: 24),
+                const Text(
+                  'Respons Backend',
+                  style: TextStyle(
+                    color: darkNavy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                child: SelectableText(
-                  resultText,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFE0E8F5),
+                    ),
+                  ),
+                  child: SelectableText(
+                    resultText!,
+                    style: const TextStyle(
+                      color: darkNavy,
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ],
+            ] else ...[
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 50),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          color: lightBlue,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Icon(
+                          featureIcon,
+                          size: 42,
+                          color: primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        widget.title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: darkNavy,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        featureDescription,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF687991),
+                          height: 1.6,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1058,3 +1136,255 @@ class _FeaturePageState extends State<FeaturePage> {
     );
   }
 }
+
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final VisualMathApi api = VisualMathApi();
+
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final nimController = TextEditingController();
+  final prodiController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  String role = 'mahasiswa';
+  String errorText = '';
+  String successText = '';
+  bool isLoading = false;
+  bool isPasswordVisible = false;
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    nimController.dispose();
+    prodiController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> register() async {
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+    final confirmPassword = confirmPasswordController.text;
+
+    if (name.isEmpty || email.isEmpty ||
+        password.isEmpty || confirmPassword.isEmpty) {
+      setState(() => errorText = 'Lengkapi semua kolom wajib.');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      setState(() => errorText = 'Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      errorText = '';
+      successText = '';
+    });
+
+    try {
+      await api.register(
+        name: name,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
+        role: role,
+        nim: nimController.text,
+        prodi: prodiController.text,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        successText =
+            'Pendaftaran berhasil. Silakan kembali dan login.';
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+
+      final data = e.response?.data;
+      setState(() {
+        if (data is Map && data['error'] != null) {
+          errorText = data['error'].toString();
+        } else if (e.response != null) {
+          errorText = 'Pendaftaran gagal (HTTP ${e.response?.statusCode}).';
+        } else {
+          errorText = 'Tidak dapat terhubung ke server.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => errorText = 'Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Daftar VisualMath AI'),
+        backgroundColor: Colors.white,
+        foregroundColor: darkNavy,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const Icon(
+              Icons.person_add_alt_1_rounded,
+              size: 64,
+              color: primaryBlue,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Buat Akun Baru',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: darkNavy,
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Nama lengkap *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              initialValue: role,
+              decoration: const InputDecoration(
+                labelText: 'Peran pengguna',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'mahasiswa',
+                  child: Text('Mahasiswa'),
+                ),
+                DropdownMenuItem(
+                  value: 'dosen',
+                  child: Text('Dosen'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => role = value);
+                }
+              },
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nimController,
+              decoration: const InputDecoration(
+                labelText: 'NIM (opsional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: prodiController,
+              decoration: const InputDecoration(
+                labelText: 'Program studi (opsional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: passwordController,
+              obscureText: !isPasswordVisible,
+              decoration: InputDecoration(
+                labelText: 'Kata sandi *',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isPasswordVisible = !isPasswordVisible;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: confirmPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Konfirmasi kata sandi *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (errorText.isNotEmpty) ...[
+              Text(
+                errorText,
+                style: const TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (successText.isNotEmpty) ...[
+              Text(
+                successText,
+                style: const TextStyle(color: Colors.green),
+              ),
+              const SizedBox(height: 12),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : register,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                ),
+                child: Text(
+                  isLoading ? 'Mendaftarkan...' : 'Daftar',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Sudah punya akun? Login'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

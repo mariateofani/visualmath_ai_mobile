@@ -1,7 +1,5 @@
 
 import 'package:dio/dio.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 class VisualMathApi {
   static const String baseUrl =
@@ -13,11 +11,8 @@ class VisualMathApi {
   factory VisualMathApi() => _instance;
 
   late final Dio _dio;
-  late final CookieJar _cookieJar;
 
   VisualMathApi._internal() {
-    _cookieJar = CookieJar();
-
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -29,12 +24,9 @@ class VisualMathApi {
         },
       ),
     );
-
-    _dio.interceptors.add(
-      CookieManager(_cookieJar),
-    );
   }
 
+  // LOGIN
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -42,7 +34,7 @@ class VisualMathApi {
     final response = await _dio.post(
       '/api/auth/login',
       data: {
-        'email': email,
+        'email': email.trim(),
         'password': password,
       },
     );
@@ -50,6 +42,35 @@ class VisualMathApi {
     return Map<String, dynamic>.from(response.data);
   }
 
+  // REGISTER
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required String role,
+    String? nim,
+    String? prodi,
+  }) async {
+    final response = await _dio.post(
+      '/api/auth/register',
+      data: {
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+        'confirmPassword': confirmPassword,
+        'role': role,
+        if (nim != null && nim.trim().isNotEmpty)
+          'nim': nim.trim(),
+        if (prodi != null && prodi.trim().isNotEmpty)
+          'prodi': prodi.trim(),
+      },
+    );
+
+    return Map<String, dynamic>.from(response.data);
+  }
+
+  // ANALISIS RUMUS
   Future<Map<String, dynamic>> analyzeFormula(
     String expression,
   ) async {
