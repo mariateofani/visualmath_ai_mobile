@@ -12,6 +12,9 @@ class VisualMathApi {
 
   late final Dio _dio;
 
+  // Cookie sesi dari server.
+  String? _sessionCookie;
+
   VisualMathApi._internal() {
     _dio = Dio(
       BaseOptions(
@@ -24,6 +27,44 @@ class VisualMathApi {
         },
       ),
     );
+
+    // Kirim cookie pada permintaan yang memerlukan sesi.
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (_sessionCookie != null &&
+              _sessionCookie!.isNotEmpty) {
+            options.headers['Cookie'] = _sessionCookie;
+          }
+          handler.next(options);
+        },
+        onResponse: (response, handler) {
+          _saveSessionCookie(response);
+          handler.next(response);
+        },
+      ),
+    );
+  }
+
+  void _saveSessionCookie(Response response) {
+    final cookies = response.headers['set-cookie'];
+
+    if (cookies == null || cookies.isEmpty) return;
+
+    for (final cookie in cookies) {
+      // Simpan pasangan nama=nilai saja, bukan atribut
+      // seperti Path, HttpOnly, Secure, atau SameSite.
+      final pair = cookie.split(';').first.trim();
+
+      if (pair.startsWith('vma_session=')) {
+        if (pair == 'vma_session=') {
+          _sessionCookie = null;
+        } else {
+          _sessionCookie = pair;
+        }
+        return;
+      }
+    }
   }
 
   // LOGIN
@@ -39,7 +80,7 @@ class VisualMathApi {
       },
     );
 
-    return Map<String, dynamic>.from(response.data);
+    return _asMap(response.data);
   }
 
   // REGISTER
@@ -67,7 +108,7 @@ class VisualMathApi {
       },
     );
 
-    return Map<String, dynamic>.from(response.data);
+    return _asMap(response.data);
   }
 
   // ANALISIS RUMUS
@@ -82,6 +123,25 @@ class VisualMathApi {
       },
     );
 
-    return Map<String, dynamic>.from(response.data);
+    return _asMap(response.data);
+  }
+
+  // LOGOUT LOKAL
+  void clearSession() {
+    _sessionCookie = null;
+  }
+
+  Map<String, dynamic> _asMap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    throw const FormatException(
+      'Respons server bukan objek JSON.',
+    );
   }
 }
