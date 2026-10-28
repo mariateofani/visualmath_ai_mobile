@@ -12,11 +12,14 @@ class VisualMathApp extends StatelessWidget {
   const VisualMathApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => ListenableBuilder(
+      listenable: app,
+      builder: (_, __) => MaterialApp(
         title: 'VisualMath AI',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
+        themeMode: app.themeMode,
         // Kolom maksimal 480 px di tengah, seperti versi HTML.
         builder: (c, child) => ColoredBox(
           color: Theme.of(c).scaffoldBackgroundColor,
@@ -24,7 +27,7 @@ class VisualMathApp extends StatelessWidget {
         ),
         // Penting: jangan pakai const di sini, agar layar ikut dibangun ulang saat state berubah.
         home: ListenableBuilder(listenable: app, builder: (_, __) => app.user == null ? LoginScreen() : Shell()),
-      );
+      ));
 }
 
 const _nav = {
@@ -72,7 +75,7 @@ class Shell extends StatelessWidget {
         shape: Border(bottom: BorderSide(color: t.ln)),
         titleSpacing: 16,
         title: Text(_ttl[app.tab] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        actions: [Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: pill(role)))],
+        actions: [const ThemeBtn(), Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: pill(role)))],
       ),
       body: SafeArea(bottom: false, child: _body(role)),
       bottomNavigationBar: _BottomNav(items: items, cur: app.tab),

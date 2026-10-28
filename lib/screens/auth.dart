@@ -28,6 +28,7 @@ class _LoginState extends State<LoginScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.fromLTRB(20, 24, 20, 24), children: [
+          const Align(alignment: Alignment.centerRight, child: ThemeBtn()),
           PlotView(c: c, p: const {}, xr: 7, ratio: 2.27, mini: true),
           const SizedBox(height: 14),
           Text.rich(

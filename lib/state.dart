@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'engine.dart';
 
 const topik = ['Linear', 'Kuadrat', 'Trigonometri', 'Turunan'];
@@ -134,6 +135,12 @@ class AppState extends ChangeNotifier {
   ];
   final mat = <Mat>[Mat(1, 'Fungsi Linear dan Gradien', 'Linear', 'Kalkulus A'), Mat(2, 'Akar Persamaan Kuadrat', 'Kuadrat', 'Matematika Dasar B')];
   final ai = AiCfg();
+
+  ThemeMode themeMode = ThemeMode.system;
+  void setTheme(ThemeMode m) {
+    themeMode = m;
+    notifyListeners();
+  }
 
   void upd() => notifyListeners();
   void go(String t) {

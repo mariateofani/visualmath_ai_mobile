@@ -93,6 +93,19 @@ Widget dd(String label, String value, List<String> opts, ValueChanged<String> on
       ],
     );
 
+class ThemeBtn extends StatelessWidget {
+  const ThemeBtn({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return IconButton(
+      tooltip: dark ? 'Mode terang' : 'Mode gelap',
+      icon: Icon(dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+      onPressed: () => app.setTheme(dark ? ThemeMode.light : ThemeMode.dark),
+    );
+  }
+}
+
 class PlotView extends StatelessWidget {
   final Compiled c;
   final Map<String, double> p;
@@ -229,6 +242,17 @@ class _ProfileState extends State<ProfileScreen> {
             child: const Text('Simpan profil'),
           ),
         ),
+      ])),
+      card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        h3('Tampilan'),
+        Wrap(spacing: 8, children: [
+          for (final e in [(ThemeMode.system, 'Sistem'), (ThemeMode.light, 'Terang'), (ThemeMode.dark, 'Gelap')])
+            ChoiceChip(
+              label: Text(e.$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: app.themeMode == e.$1 ? t.on : t.ink)),
+              selected: app.themeMode == e.$1,
+              onSelected: (_) => app.setTheme(e.$1),
+            ),
+        ]),
       ])),
       if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Progres belajar'), for (final x in topik) bar(x, app.mast[x]!)])),
       if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Riwayat belajar'), for (final h in app.hist.take(15)) Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(h))])),
