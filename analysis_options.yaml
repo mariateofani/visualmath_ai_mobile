@@ -1,0 +1,7 @@
+analyzer:
+  errors:
+    unused_local_variable: ignore
+  exclude:
+    - build/**
+    - android/**
+    - web/**

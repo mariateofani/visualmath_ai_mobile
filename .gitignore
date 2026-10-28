@@ -1,0 +1,18 @@
+
+.dart_tool/
+.idea/
+build/
+.flutter-plugins*
+.packages
+local.properties
+*.iml
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Signing keys and credentials
+*.jks
+*.keystore
+key.properties
