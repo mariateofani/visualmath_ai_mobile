@@ -1,15 +1,34 @@
 import 'package:flutter/material.dart';
 import 'common.dart';
 import 'screens/auth.dart';
+import 'screens/certificates.dart';
+import 'screens/landing.dart';
+import 'screens/leaderboard.dart';
+import 'screens/notifications.dart';
 import 'screens/staff.dart';
 import 'screens/student.dart';
 import 'state.dart';
 import 'theme.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'connectivity.dart';
 
 void main() => runApp(const VisualMathApp());
 
-class VisualMathApp extends StatelessWidget {
+class VisualMathApp extends StatefulWidget {
   const VisualMathApp({super.key});
+  @override
+  State<VisualMathApp> createState() => _VisualMathAppState();
+}
+
+class _VisualMathAppState extends State<VisualMathApp> {
+  bool _online = true;
+  @override
+  void initState() {
+    super.initState();
+    ConnectivityService.isOnline().then((v) => setState(() => _online = v));
+    ConnectivityService.onChanges.listen((r) => setState(() => _online = r.isNotEmpty && !r.contains(ConnectivityResult.none)));
+    app.init();
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -20,46 +39,77 @@ class VisualMathApp extends StatelessWidget {
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
         themeMode: app.themeMode,
-        // Kolom maksimal 480 px di tengah, seperti versi HTML.
         builder: (c, child) => ColoredBox(
           color: Theme.of(c).scaffoldBackgroundColor,
-          child: Align(alignment: Alignment.topCenter, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 480), child: child)),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(children: [
+                OfflineBanner(online: _online),
+                Expanded(child: child ?? const SizedBox.shrink()),
+              ]),
+            ),
+          ),
         ),
-        // Penting: jangan pakai const di sini, agar layar ikut dibangun ulang saat state berubah.
-        home: ListenableBuilder(listenable: app, builder: (_, __) => app.user == null ? LoginScreen() : Shell()),
+        home: ListenableBuilder(listenable: app, builder: (_, __) {
+          if (app.initializing) return const _Splash();
+          if (app.user == null) {
+            switch (app.authView) {
+              case 'login': return const LoginScreen();
+              case 'register': return const LoginScreen(startRegister: true);
+              default: return const LandingScreen();
+            }
+          }
+          return Shell();
+        }),
       ));
 }
 
+class _Splash extends StatelessWidget {
+  const _Splash();
+  @override
+  Widget build(BuildContext context) {
+    final t = tk(context);
+    return Scaffold(
+      backgroundColor: t.bg,
+      body: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.functions, size: 64, color: t.ac),
+          const SizedBox(height: 16),
+          Text('VisualMath AI', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
+          const SizedBox(height: 24),
+          CircularProgressIndicator(color: t.ac),
+        ]),
+      ),
+    );
+  }
+}
+
 const _nav = {
-  'mahasiswa': [('home', Icons.home_outlined, 'Beranda'), ('ai', Icons.functions, 'AI Math'), ('graf', Icons.show_chart, 'Grafik'), ('lat', Icons.edit_note, 'Latihan'), ('me', Icons.person_outline, 'Saya')],
-  'dosen': [('home', Icons.home_outlined, 'Beranda'), ('mat', Icons.menu_book_outlined, 'Materi'), ('kls', Icons.groups_outlined, 'Kelas'), ('me', Icons.person_outline, 'Profil')],
-  'admin': [('home', Icons.home_outlined, 'Beranda'), ('usr', Icons.manage_accounts_outlined, 'Pengguna'), ('cfg', Icons.tune, 'AI & Log'), ('me', Icons.person_outline, 'Profil')],
+  'mahasiswa': [('home', Icons.home_rounded, 'Beranda'), ('ai', Icons.functions_rounded, 'AI Math'), ('graf', Icons.show_chart_rounded, 'Grafik'), ('lat', Icons.edit_note_rounded, 'Latihan'), ('me', Icons.person_rounded, 'Saya')],
+  'dosen': [('home', Icons.home_rounded, 'Beranda'), ('mat', Icons.menu_book_rounded, 'Materi'), ('kls', Icons.groups_rounded, 'Kelas'), ('me', Icons.person_rounded, 'Profil')],
+  'admin': [('home', Icons.home_rounded, 'Beranda'), ('usr', Icons.manage_accounts_rounded, 'Pengguna'), ('cfg', Icons.tune_rounded, 'AI & Log'), ('me', Icons.person_rounded, 'Profil')],
 };
-const _ttl = {'home': 'Beranda', 'ai': 'AI Math Explainer', 'graf': 'Grafik & Simulasi', 'lat': 'Latihan Adaptif', 'me': 'Profil', 'mat': 'Materi & Soal', 'kls': 'Kelas', 'usr': 'Pengguna & Role', 'cfg': 'Konfigurasi & Monitoring'};
+const _ttl = {'home': 'Beranda', 'ai': 'AI Math Explainer', 'graf': 'Grafik & Simulasi', 'lat': 'Latihan Adaptif', 'me': 'Profil', 'mat': 'Materi & Soal', 'kls': 'Kelas', 'usr': 'Pengguna & Role', 'cfg': 'Konfigurasi & Monitoring', 'notif': 'Notifikasi', 'sert': 'Sertifikat', 'rank': 'Peringkat'};
 
 class Shell extends StatelessWidget {
   Shell({super.key});
 
   Widget _body(String role) {
     switch (app.tab) {
-      case 'home':
-        return role == 'mahasiswa' ? StudentHome() : role == 'dosen' ? TeacherHome() : AdminHome();
-      case 'ai':
-        return AiScreen();
-      case 'graf':
-        return GraphScreen();
-      case 'lat':
-        return PracticeScreen();
-      case 'mat':
-        return MaterialScreen();
-      case 'kls':
-        return ClassScreen();
-      case 'usr':
-        return UsersScreen();
-      case 'cfg':
-        return ConfigScreen();
-      default:
-        return ProfileScreen();
+      case 'home': return role == 'mahasiswa' ? StudentHome() : role == 'dosen' ? TeacherHome() : AdminHome();
+      case 'ai': return AiScreen();
+      case 'graf': return GraphScreen();
+      case 'lat': return PracticeScreen();
+      case 'mat': return MaterialScreen();
+      case 'kls': return ClassScreen();
+      case 'usr': return UsersScreen();
+      case 'cfg': return ConfigScreen();
+      case 'notif': return NotificationsScreen();
+      case 'sert': return CertificatesScreen();
+      case 'rank': return LeaderboardScreen();
+      default: return ProfileScreen();
     }
   }
 
@@ -71,11 +121,14 @@ class Shell extends StatelessWidget {
         backgroundColor: t.sf,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: t.ln)),
+        scrolledUnderElevation: 1,
         titleSpacing: 16,
         title: Text(_ttl[app.tab] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        actions: [const ThemeBtn(), Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: pill(role)))],
+        actions: [
+          IconButton(onPressed: () => app.go('notif'), icon: Badge.count(count: app.unreadNotif, child: const Icon(Icons.notifications_outlined))),
+          const ThemeBtn(),
+          Padding(padding: const EdgeInsets.only(right: 12), child: Center(child: pill(role))),
+        ],
       ),
       body: SafeArea(bottom: false, child: _body(role)),
       bottomNavigationBar: _BottomNav(items: items, cur: app.tab),

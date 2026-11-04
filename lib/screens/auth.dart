@@ -5,20 +5,26 @@ import '../state.dart';
 import '../theme.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool startRegister;
+  const LoginScreen({super.key, this.startRegister = false});
   @override
   State<LoginScreen> createState() => _LoginState();
 }
 
 class _LoginState extends State<LoginScreen> {
   bool masuk = true;
+  @override
+  void initState() { super.initState(); masuk = !widget.startRegister; }
   String role = 'mahasiswa';
   String? err;
   final n = TextEditingController(), e = TextEditingController(), p = TextEditingController();
 
-  void submit() {
-    final r = masuk ? app.login(e.text, p.text) : app.register(n.text, e.text, p.text, role);
+  bool _loading = false;
+  Future<void> submit() async {
+    setState(() { _loading = true; err = null; });
+    final r = masuk ? await app.login(e.text, p.text) : await app.register(n.text, e.text, p.text, role);
     if (r != null) setState(() => err = r);
+    setState(() => _loading = false);
   }
 
   @override
@@ -57,7 +63,12 @@ class _LoginState extends State<LoginScreen> {
           const SizedBox(height: 10),
           field(p, 'Kata sandi', pw: true),
           const SizedBox(height: 14),
-          FilledButton(onPressed: submit, child: Text(masuk ? 'Masuk' : 'Buat akun')),
+          FilledButton(onPressed: _loading ? null : submit, child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(masuk ? 'Masuk' : 'Buat akun')),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            TextButton(onPressed: () => app.showLanding(), child: const Text('Kembali')),
+            if (masuk) TextButton(onPressed: () {}, child: const Text('Lupa sandi?')),
+          ]),
           if (masuk) ...[
             const SizedBox(height: 14),
             muted('Akun contoh (kata sandi 1234):'),

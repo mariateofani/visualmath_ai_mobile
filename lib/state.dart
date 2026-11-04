@@ -1,7 +1,11 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'engine.dart';
+import 'api.dart';
+import 'storage.dart';
+import 'connectivity.dart';
 
 const topik = ['Linear', 'Kuadrat', 'Trigonometri', 'Turunan'];
 final _r = Random();
@@ -111,6 +115,19 @@ Q genQ(int d) {
 class AppState extends ChangeNotifier {
   U? user;
   String tab = 'home';
+  String authView = 'landing';
+  bool initializing = false;
+  bool online = true;
+  int unreadNotif = 0;
+  List<Map<String, dynamic>> notifications = [];
+  List<Map<String, dynamic>> certificates = [];
+  List<Map<String, dynamic>> leaderboard = [];
+  List<Map<String, dynamic>> materials = [];
+  List<Map<String, dynamic>> classes = [];
+  List<Map<String, dynamic>> topics = [];
+  List<Map<String, dynamic>> usersRemote = [];
+  Map<String, dynamic>? aiConfig;
+  Map<String, dynamic>? systemInfo;
   final users = <U>[
     U(1, 'Dina Pratama', 'mhs@vma.id', '1234', 'mahasiswa', nim: 'V3925001'),
     U(2, 'Dr. Bagas Wibowo', 'dosen@vma.id', '1234', 'dosen'),
@@ -139,6 +156,78 @@ class AppState extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   void setTheme(ThemeMode m) {
     themeMode = m;
+    final v = m == ThemeMode.dark ? 'dark' : m == ThemeMode.light ? 'light' : 'system';
+    LocalStore.setThemeMode(v);
+    notifyListeners();
+  }
+
+  Future<void> init() async {
+    // theme
+    final tm = await LocalStore.getThemeMode();
+    themeMode = tm == 'dark' ? ThemeMode.dark : tm == 'light' ? ThemeMode.light : ThemeMode.system;
+    // user cache
+    final uj = await LocalStore.getUserJson();
+    if (uj != null) {
+      try {
+        final m = jsonDecode(uj) as Map<String, dynamic>;
+        // rebuild a minimal U
+        user = U(
+          (m['id'] is int) ? m['id'] : int.tryParse('${m['id']}') ?? 0,
+          (m['name'] ?? m['nama'] ?? '').toString(),
+          (m['email'] ?? '').toString(),
+          '',
+          (m['role'] ?? 'mahasiswa').toString(),
+        );
+      } catch (_) {}
+    }
+    online = await ConnectivityService.isOnline();
+    initializing = false;
+    notifyListeners();
+    // try refresh profile if online
+    if (user != null && online) {
+      try {
+        final p = await Api.me();
+        if (p != null) {
+          final u = p['user'] ?? p;
+          if (u is Map) {
+            user = U(
+              (u['id'] is int) ? u['id'] : int.tryParse('${u['id']}') ?? user!.id,
+              (u['name'] ?? u['nama'] ?? user!.nama).toString(),
+              (u['email'] ?? user!.email).toString(),
+              '',
+              (u['role'] ?? user!.role).toString(),
+            );
+            await LocalStore.setUserJson(jsonEncode(u));
+            notifyListeners();
+          }
+        }
+      } catch (_) {}
+    }
+    // load notifications count if logged in
+    if (user != null) await refreshRemote();
+  }
+
+  void showLogin() { authView = 'login'; notifyListeners(); }
+  void showRegister() { authView = 'register'; notifyListeners(); }
+  void showLanding() { authView = 'landing'; notifyListeners(); }
+
+  Future<void> refreshRemote() async {
+    if (user == null) return;
+    online = await ConnectivityService.isOnline();
+    if (!online) { notifyListeners(); return; }
+    try {
+      final n = await Api.listNotifications();
+      notifications = List<Map<String, dynamic>>.from(n.map((e) => Map<String, dynamic>.from(e as Map)));
+      unreadNotif = notifications.where((x) => x['read'] != true && x['isRead'] != true).length;
+    } catch (_) {}
+    try { materials = List<Map<String, dynamic>>.from((await Api.listMaterials()).map((e) => Map<String, dynamic>.from(e as Map))); } catch (_) {}
+    try { classes = List<Map<String, dynamic>>.from((await Api.listClasses()).map((e) => Map<String, dynamic>.from(e as Map))); } catch (_) {}
+    try { topics = List<Map<String, dynamic>>.from((await Api.listTopics()).map((e) => Map<String, dynamic>.from(e as Map))); } catch (_) {}
+    try { aiConfig = await Api.getAiConfig(); } catch (_) {}
+    try { systemInfo = await Api.getSystem(); } catch (_) {}
+    if (user!.role == 'admin') {
+      try { usersRemote = List<Map<String, dynamic>>.from((await Api.listUsers()).map((e) => Map<String, dynamic>.from(e as Map))); } catch (_) {}
+    }
     notifyListeners();
   }
 
@@ -153,38 +242,93 @@ class AppState extends ChangeNotifier {
   String get lowest => (List.of(topik)..sort((a, b) => mast[a]!.compareTo(mast[b]!))).first;
   final _mail = RegExp(r'^\S+@\S+\.\S+$');
 
-  String? login(String e, String p) {
+  Future<String?> login(String e, String p) async {
     e = e.trim().toLowerCase();
     if (!_mail.hasMatch(e)) return 'Format email tidak valid.';
     if (p.length < 4) return 'Kata sandi minimal 4 karakter.';
+    online = await ConnectivityService.isOnline();
+    if (online) {
+      try {
+        final r = await Api.login(e, p);
+        if (r['ok'] == true) {
+          final u = r['user'] as Map<String, dynamic>;
+          user = U(
+            (u['id'] is int) ? u['id'] : int.tryParse('${u['id']}') ?? 0,
+            (u['name'] ?? u['nama'] ?? '').toString(),
+            (u['email'] ?? e).toString(),
+            p,
+            (u['role'] ?? 'mahasiswa').toString(),
+          );
+          tab = 'home';
+          authView = 'landing';
+          addL('Login: $e');
+          await refreshRemote();
+          notifyListeners();
+          return null;
+        }
+        return (r['error'] ?? 'Email atau kata sandi salah').toString();
+      } catch (_) {
+        // fallback offline
+      }
+    }
     final u = users.where((x) => x.email == e && x.pw == p).firstOrNull;
-    if (u == null) return 'Email atau kata sandi salah.';
+    if (u == null) return 'Email atau kata sandi salah (offline).';
     if (!u.aktif) return 'Akun ini dinonaktifkan. Hubungi admin.';
     user = u;
     tab = 'home';
-    addL('Login: $e');
+    authView = 'landing';
+    addL('Login: $e (offline)');
     notifyListeners();
     return null;
   }
 
-  String? register(String n, String e, String p, String role) {
+  Future<String?> register(String n, String e, String p, String role) async {
     e = e.trim().toLowerCase();
     if (n.trim().length < 3) return 'Nama minimal 3 karakter.';
     if (!_mail.hasMatch(e)) return 'Format email tidak valid.';
     if (p.length < 4) return 'Kata sandi minimal 4 karakter.';
+    online = await ConnectivityService.isOnline();
+    if (online) {
+      try {
+        final r = await Api.register(n, e, p, role);
+        if (r['ok'] == true) {
+          final u = r['user'] as Map<String, dynamic>;
+          final nu = U(
+            (u['id'] is int) ? u['id'] : int.tryParse('${u['id']}') ?? DateTime.now().millisecondsSinceEpoch,
+            (u['name'] ?? n).toString(),
+            (u['email'] ?? e).toString(),
+            p,
+            (u['role'] ?? role).toString(),
+          );
+          users.add(nu);
+          user = nu;
+          tab = 'home';
+          authView = 'landing';
+          addL('Registrasi: $e');
+          await refreshRemote();
+          notifyListeners();
+          return null;
+        }
+        return (r['error'] ?? 'Registrasi gagal').toString();
+      } catch (_) {}
+    }
     if (users.any((x) => x.email == e)) return 'Email sudah terdaftar.';
     final u = U(DateTime.now().millisecondsSinceEpoch, n.trim(), e, p, role);
     users.add(u);
     user = u;
     tab = 'home';
-    addL('Registrasi: $e');
+    authView = 'landing';
+    addL('Registrasi: $e (offline)');
     notifyListeners();
     return null;
   }
 
-  void logout() {
+  Future<void> logout() async {
     addL('Logout: ${user!.email}');
+    await Api.logout();
     user = null;
+    authView = 'landing';
+    tab = 'home';
     notifyListeners();
   }
 

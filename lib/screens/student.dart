@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../common.dart';
 import '../engine.dart';
+import '../multivar_plot.dart';
 import '../state.dart';
 import '../theme.dart';
 
@@ -34,6 +35,13 @@ class StudentHome extends StatelessWidget {
         ]),
       ])),
       Row(children: [stat('${app.xp}', 'XP'), stat('${app.diff}/5', 'Level soal'), stat('${app.streak}', 'Beruntun')]),
+      card(Row(children: [
+        Expanded(child: FilledButton.tonal(onPressed: () => app.go('sert'), child: const Text('Sertifikat'))),
+        const SizedBox(width: 8),
+        Expanded(child: FilledButton.tonal(onPressed: () => app.go('rank'), child: const Text('Peringkat'))),
+        const SizedBox(width: 8),
+        Expanded(child: FilledButton.tonal(onPressed: () => app.go('notif'), child: const Text('Notif'))),
+      ])),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Penguasaan topik'), for (final t in topik) bar(t, app.mast[t]!)])),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         h3('Rekomendasi AI'),
@@ -175,6 +183,7 @@ class GraphScreen extends StatefulWidget {
 
 class _GraphState extends State<GraphScreen> {
   late final tc = TextEditingController(text: app.expr);
+  String _mvExpr = 'x^2 + y^2';
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +216,12 @@ class _GraphState extends State<GraphScreen> {
       ])),
       if (err != null) msg(context, err),
       if (c != null) PlotView(c: c, p: app.p, xr: app.xr, ratio: 1.31),
+      card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        h3('Kontur multivariabel z = f(x,y)'),
+        field(TextEditingController(text: 'x^2 + y^2'), 'Rumus z (gunakan x dan y)', mono: true, onChanged: (v) => setState(() => _mvExpr = v)),
+        const SizedBox(height: 8),
+        MultivarPlot(expr: _mvExpr, range: 4),
+      ])),
       Row(children: [
         ActionChip(label: const Text('Perbesar'), onPressed: () => setState(() => app.xr = (app.xr - 2).clamp(2.0, 20.0).toDouble())),
         const SizedBox(width: 8),

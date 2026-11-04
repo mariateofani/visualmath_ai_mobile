@@ -258,7 +258,7 @@ class _ProfileState extends State<ProfileScreen> {
       if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Riwayat belajar'), for (final h in app.hist.take(15)) Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(h))])),
       FilledButton(
         style: FilledButton.styleFrom(backgroundColor: t.erb, foregroundColor: t.er),
-        onPressed: app.logout,
+        onPressed: () { app.logout(); },
         child: const Text('Keluar'),
       ),
     ]);
