@@ -5,6 +5,7 @@ import 'screens/certificates.dart';
 import 'screens/landing.dart';
 import 'screens/leaderboard.dart';
 import 'screens/notifications.dart';
+import 'screens/practice_screen.dart';
 import 'screens/staff.dart';
 import 'screens/student.dart';
 import 'state.dart';

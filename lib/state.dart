@@ -140,6 +140,7 @@ class AppState extends ChangeNotifier {
   Ex? res;
   String? aiErr, photo;
   final mast = <String, int>{'Linear': 55, 'Kuadrat': 40, 'Trigonometri': 30, 'Turunan': 20};
+  int correctCount = 0;
   int diff = 2, xp = 40, streak = 0, cs = 0;
   Q? q;
   int? ans;
@@ -228,6 +229,13 @@ class AppState extends ChangeNotifier {
     if (user!.role == 'admin') {
       try { usersRemote = List<Map<String, dynamic>>.from((await Api.listUsers()).map((e) => Map<String, dynamic>.from(e as Map))); } catch (_) {}
     }
+    notifyListeners();
+  }
+
+  void issueCertificate(String title, int score) {
+    certificates.add({'title': title, 'issued': DateTime.now().toIso8601String().substring(0, 10), 'score': score});
+    addH('Sertifikat diperoleh: $title');
+    addL('Sertifikat: $title');
     notifyListeners();
   }
 
@@ -348,6 +356,10 @@ class AppState extends ChangeNotifier {
       mast[qq.t] = min(100, mast[qq.t]! + 8);
       streak++;
       xp += 10 * qq.d;
+      correctCount++;
+      if (mast[qq.t]! >= 70 && !certificates.any((c) => c['title'] == 'Penguasaan ${qq.t}')) {
+        issueCertificate('Penguasaan ${qq.t}', mast[qq.t]!);
+      }
       final n = min(5, diff + 1);
       lv = n > diff ? 'Level soal naik ke $n.' : 'Level soal sudah maksimal.';
       diff = n;

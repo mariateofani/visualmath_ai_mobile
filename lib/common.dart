@@ -254,6 +254,14 @@ class _ProfileState extends State<ProfileScreen> {
             ),
         ]),
       ])),
+      if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        h3('Akses cepat'),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.tonal(onPressed: () => app.go('sert'), child: const Text('Sertifikat')),
+          FilledButton.tonal(onPressed: () => app.go('rank'), child: const Text('Peringkat')),
+          FilledButton.tonal(onPressed: () => app.go('notif'), child: const Text('Notifikasi')),
+        ]),
+      ])),
       if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Progres belajar'), for (final x in topik) bar(x, app.mast[x]!)])),
       if (st) card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Riwayat belajar'), for (final h in app.hist.take(15)) Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(h))])),
       FilledButton(

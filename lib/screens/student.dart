@@ -35,12 +35,15 @@ class StudentHome extends StatelessWidget {
         ]),
       ])),
       Row(children: [stat('${app.xp}', 'XP'), stat('${app.diff}/5', 'Level soal'), stat('${app.streak}', 'Beruntun')]),
-      card(Row(children: [
-        Expanded(child: FilledButton.tonal(onPressed: () => app.go('sert'), child: const Text('Sertifikat'))),
-        const SizedBox(width: 8),
-        Expanded(child: FilledButton.tonal(onPressed: () => app.go('rank'), child: const Text('Peringkat'))),
-        const SizedBox(width: 8),
-        Expanded(child: FilledButton.tonal(onPressed: () => app.go('notif'), child: const Text('Notif'))),
+      card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        h3('Modul tambahan'),
+        Row(children: [
+          Expanded(child: FilledButton.icon(onPressed: () => app.go('sert'), icon: const Icon(Icons.verified), label: const Text('Sertifikat'))),
+          const SizedBox(width: 8),
+          Expanded(child: FilledButton.icon(onPressed: () => app.go('rank'), icon: const Icon(Icons.emoji_events), label: const Text('Peringkat'))),
+        ]),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => app.go('notif'), icon: const Icon(Icons.notifications), label: const Text('Notifikasi'))),
       ])),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Penguasaan topik'), for (final t in topik) bar(t, app.mast[t]!)])),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -249,43 +252,3 @@ class _GraphState extends State<GraphScreen> {
   }
 }
 
-class PracticeScreen extends StatelessWidget {
-  const PracticeScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final q = app.question, a = app.ans, t = tk(context);
-    return page([
-      card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [pill(q.t), const SizedBox(width: 8), Expanded(child: muted('Level ${q.d} dari 5')), muted('Beruntun ${app.streak}')]),
-        const SizedBox(height: 8),
-        ClipRRect(borderRadius: BorderRadius.circular(9), child: LinearProgressIndicator(value: q.d / 5, minHeight: 8, backgroundColor: t.grid, color: t.ac)),
-        const SizedBox(height: 14),
-        Text(q.x, style: monoStyle(16).copyWith(height: 1.6)),
-        for (var i = 0; i < q.o.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: a == null ? () => app.answer(i) : null,
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 50),
-                padding: const EdgeInsets.all(14),
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  color: a == null ? t.sf : q.o[i] == q.ok ? t.okb : i == a ? t.erb : t.sf,
-                  border: Border.all(width: 1.5, color: a == null ? t.ln : q.o[i] == q.ok ? t.ok : i == a ? t.er : t.ln),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('${q.o[i]}', style: monoStyle(16).copyWith(fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ),
-      ])),
-      if (a != null) ...[
-        msg(context, '${q.o[a] == q.ok ? 'Benar!' : 'Belum tepat.'} ${q.ex}\n${app.lv}', ok: q.o[a] == q.ok),
-        FilledButton(onPressed: app.nextQ, child: const Text('Soal berikutnya')),
-      ],
-    ]);
-  }
-}
