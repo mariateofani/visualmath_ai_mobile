@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 class ConnectivityService {
   static final Connectivity _c = Connectivity();
   static Future<bool> isOnline() async {
+    // connectivity_plus 6.x mengembalikan List<ConnectivityResult>.
     final r = await _c.checkConnectivity();
-    return r != ConnectivityResult.none;
+    return r.isNotEmpty && r.any((x) => x != ConnectivityResult.none);
   }
   static Stream<List<ConnectivityResult>> get onChanges => _c.onConnectivityChanged;
 }

@@ -37,13 +37,26 @@ lib/
   screens/staff.dart    dosen dan admin
 ```
 
-## Status (jujur)
-- Data hanya di memori, hilang saat aplikasi ditutup. Belum terhubung ke backend Node.js/Prisma/JWT.
-- Penjelasan AI memakai aturan lokal, bukan LLM/RAG. OCR foto belum ada (hasil bacaan simulasi).
-- Indikator offline (NFR-10) belum ada; tambahkan `connectivity_plus` saat integrasi backend.
-- Belum dikompilasi di lingkungan pembuatan; jalankan `flutter analyze` dan `flutter test` lebih dulu.
+## Latihan adaptif
 
-## Langkah integrasi backend
-Ganti pemanggilan di `state.dart` (login, register, jawaban) dan `student.dart` (analisis) dengan HTTP ke
-`/api/v1/auth/login`, `/api/v1/formulas/validate`, `/api/v1/formulas/explain`, `/api/v1/answers`,
-`/api/v1/progress`, `/api/v1/recommendations`.
+- **Mode online** memakai backend web: `GET /api/exercises`, `POST /api/exercises/answer`,
+  `POST /api/exercises/hint`, dan `POST /api/exercises/complete`. Penilaian, XP, mastery, dan
+  sertifikat dihitung server. Token sesi diambil dari cookie `vma_session` saat login dan dikirim
+  kembali sebagai header `Cookie` (backend web hanya membaca cookie).
+- **Mode offline** (atau bila server menolak sesi / tidak punya soal) memakai bank soal lokal
+  `lib/question_bank.dart`: 96 soal orisinal, 8 topik kalkulus peubah banyak x 3 tingkat x 4 soal,
+  tipe isian numerik, pilihan ganda, dan benar/salah.
+- Aturan adaptif disamakan dengan web (`lib/adaptive.dart`): tingkat naik bila benar dan turun bila
+  salah; XP 5/10/20 sekali per soal; mastery +8/+10/+14 atau -8; toleransi numerik 0.05; sertifikat
+  bila skor sesi >= 70 dan sesi tidak dihentikan.
+- Sumber soal: disusun tim mengikuti cakupan OpenStax *Calculus Volume 3* (Strang & Herman,
+  CC BY-NC-SA 4.0) bab 2-5. Kunci numerik diverifikasi numerik oleh `tool/bank.py`.
+  Untuk menambah soal: ubah `tool/bank.py`, lalu jalankan
+  `python3 tool/bank.py lib/question_bank.dart` (skrip menolak menulis bila ada kunci yang salah).
+- Uji unit: `flutter test test/adaptive_test.dart`.
+
+## Status (jujur)
+- Perubahan latihan adaptif belum dikompilasi di lingkungan pembuatnya (Flutter SDK tidak tersedia);
+  jalankan `flutter analyze` dan `flutter test` lebih dulu.
+- Mode online pada Flutter Web bergantung pada pengaturan cookie/CORS browser; target utama Android.
+- Penjelasan AI di layar AI Math masih memakai aturan lokal, belum LLM/RAG dari server.

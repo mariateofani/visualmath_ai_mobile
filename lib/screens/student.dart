@@ -6,6 +6,7 @@ import '../common.dart';
 import '../engine.dart';
 import '../multivar_plot.dart';
 import '../state.dart';
+import '../adaptive.dart';
 import '../theme.dart';
 
 Compiled? _try(String s) {
@@ -34,7 +35,7 @@ class StudentHome extends StatelessWidget {
           Expanded(child: FilledButton.tonal(onPressed: () => app.go('ai'), child: const Text('Input rumus'))),
         ]),
       ])),
-      Row(children: [stat('${app.xp}', 'XP'), stat('${app.diff}/5', 'Level soal'), stat('${app.streak}', 'Beruntun')]),
+      Row(children: [stat('${app.xp}', 'XP'), stat(kDifficulties[(app.diff - 1).clamp(0, 2).toInt()], 'Tingkat soal'), stat('${app.streak}', 'Beruntun')]),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         h3('Modul tambahan'),
         Row(children: [
@@ -48,7 +49,7 @@ class StudentHome extends StatelessWidget {
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [h3('Penguasaan topik'), for (final t in topik) bar(t, app.mast[t]!)])),
       card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         h3('Rekomendasi AI'),
-        Text('Topik $w paling perlu diperkuat (${app.mast[w]}%). Kerjakan latihan level ${(app.diff - 1).clamp(1, 5)} untuk membangun dasar.'),
+        Text('Topik $w paling perlu diperkuat (${app.mast[w]}%). Mulai latihan adaptif dari tingkat mudah untuk membangun dasar.'),
         const SizedBox(height: 10),
         FilledButton.tonal(onPressed: () => app.go('lat'), child: const Text('Mulai latihan')),
       ])),

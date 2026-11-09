@@ -3,11 +3,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'engine.dart';
+import 'adaptive.dart';
+import 'question_bank.dart';
 import 'api.dart';
 import 'storage.dart';
 import 'connectivity.dart';
 
-const topik = ['Linear', 'Kuadrat', 'Trigonometri', 'Turunan'];
+/// Nama pendek delapan topik kalkulus peubah banyak (sama dengan backend web).
+final topik = [for (final t in kTopics) t.short];
+
+String topicShort(String topicId) => kTopics.firstWhere((t) => t.id == topicId, orElse: () => const TopicInfo('', 'Umum', 'Umum')).short;
 final _r = Random();
 int ri(int a, int b) => a + _r.nextInt(b - a + 1);
 String nowS() {
@@ -46,71 +51,6 @@ class AiCfg {
   int limit = 30;
 }
 
-class Q {
-  final String t, x, ex;
-  final int ok, d;
-  final List<int> o;
-  Q(this.t, this.x, this.ex, this.ok, this.d, this.o);
-}
-
-Q genQ(int d) {
-  String t = '', x = '', ex = '';
-  int ok = 0;
-  if (d == 1) {
-    t = 'Linear';
-    final a = ri(2, 5), b = ri(1, 9), v = ri(1, 5);
-    ok = a * v + b;
-    x = 'f(x) = ${a}x + $b. Berapa f($v)?';
-    ex = 'Substitusi x = $v: $a·$v + $b = $ok.';
-  } else if (d == 2) {
-    t = 'Linear';
-    final a = ri(2, 6), r = ri(1, 6) * (_r.nextBool() ? -1 : 1), b = -a * r;
-    ok = r;
-    x = '${a}x ${b < 0 ? '−' : '+'} ${b.abs()} = 0. Berapa x?';
-    ex = 'x = −b/a = ${-b}/$a = $r.';
-  } else if (d == 3) {
-    t = 'Kuadrat';
-    final p = ri(1, 5), q = p + ri(1, 4);
-    ok = q;
-    x = 'Akar terbesar dari x² − ${p + q}x + ${p * q} = 0?';
-    ex = 'Faktorkan: (x − $p)(x − $q) = 0, sehingga akarnya $p dan $q.';
-  } else if (d == 4) {
-    if (_r.nextBool()) {
-      t = 'Kuadrat';
-      final h = ri(1, 5), mm = ri(-5, 5);
-      ok = mm;
-      x = 'Nilai minimum f(x) = x² − ${2 * h}x + ${h * h + mm} ?';
-      ex = 'Bentuk kuadrat sempurna: (x − $h)² + ($mm), minimum bernilai $mm.';
-    } else {
-      t = 'Turunan';
-      final k = ri(2, 4), n = ri(2, 3);
-      ok = k * n * (1 << (n - 1));
-      x = 'f(x) = ${k}x${n == 2 ? '²' : '³'}. Berapa f′(2)?';
-      ex = 'f′(x) = ${k * n}x${n == 2 ? '' : '²'}, sehingga f′(2) = $ok.';
-    }
-  } else {
-    if (_r.nextBool()) {
-      t = 'Trigonometri';
-      final a = ri(2, 5), c = ri(1, 4);
-      ok = a + c;
-      x = 'Nilai maksimum y = ${a}sin(x) + $c?';
-      ex = 'sin(x) maksimum 1, jadi $a·1 + $c = $ok.';
-    } else {
-      t = 'Turunan';
-      final k = ri(2, 5);
-      ok = 3 * k * 4;
-      x = 'f(x) = ${k}x³. Berapa f′(2)?';
-      ex = 'f′(x) = ${3 * k}x², sehingga f′(2) = ${3 * k}·4 = $ok.';
-    }
-  }
-  final s = <int>{ok};
-  var n = 0;
-  while (s.length < 4 && n++ < 60) {
-    s.add(ok + [-3, -2, -1, 1, 2, 3][ri(0, 5)] * (ok.abs() > 9 ? 2 : 1));
-  }
-  return Q(t, x, ex, ok, d, s.toList()..shuffle(_r));
-}
-
 /// State global sederhana. Semua data di memori (belum terhubung ke backend).
 class AppState extends ChangeNotifier {
   U? user;
@@ -139,19 +79,21 @@ class AppState extends ChangeNotifier {
   String aiIn = 'y = x^2 - 4x + 3';
   Ex? res;
   String? aiErr, photo;
-  final mast = <String, int>{'Linear': 55, 'Kuadrat': 40, 'Trigonometri': 30, 'Turunan': 20};
+  /// Penguasaan (0..100) per topik, dikunci dengan nama pendek topik.
+  final mast = <String, int>{for (final t in kTopics) t.short: 0};
   int correctCount = 0;
-  int diff = 2, xp = 40, streak = 0, cs = 0;
-  Q? q;
-  int? ans;
-  String lv = '';
-  final hist = <String>['Memulai belajar fungsi linear'];
+  /// Tingkat latihan terakhir: 1 = mudah, 2 = sedang, 3 = sulit.
+  int diff = 1, xp = 0, streak = 0, cs = 0;
+  /// Soal yang pernah dijawab benar (anti-farming XP, sama seperti web).
+  final solvedIds = <String>{};
+  final practice = LocalPracticeEngine(kQuestionBank);
+  final hist = <String>['Memulai belajar kalkulus peubah banyak'];
   final logs = <List<String>>[[nowS(), 'Sistem dimulai']];
   final cls = <Kls>[
-    Kls('Kalkulus A', [Mb('Dina Pratama', 82, 'Trigonometri'), Mb('Raka Saputra', 68, 'Kuadrat'), Mb('Salsa Putri', 74, 'Trigonometri'), Mb('Bima Aditya', 59, 'Turunan')]),
-    Kls('Matematika Dasar B', [Mb('Citra Lestari', 88, 'Linear'), Mb('Dewa Mahendra', 63, 'Kuadrat'), Mb('Eka Wulandari', 71, 'Kuadrat')]),
+    Kls('Kalkulus A', [Mb('Dina Pratama', 82, 'Limit & Kontinuitas'), Mb('Raka Saputra', 68, 'Aturan Rantai'), Mb('Salsa Putri', 74, 'Optimasi'), Mb('Bima Aditya', 59, 'Integral Lipat Dua')]),
+    Kls('Matematika Dasar B', [Mb('Citra Lestari', 88, 'Koordinat & Fungsi'), Mb('Dewa Mahendra', 63, 'Turunan Parsial'), Mb('Eka Wulandari', 71, 'Integral Lipat Tiga')]),
   ];
-  final mat = <Mat>[Mat(1, 'Fungsi Linear dan Gradien', 'Linear', 'Kalkulus A'), Mat(2, 'Akar Persamaan Kuadrat', 'Kuadrat', 'Matematika Dasar B')];
+  final mat = <Mat>[Mat(1, 'Gradien dan Turunan Berarah', 'Turunan Parsial', 'Kalkulus A'), Mat(2, 'Integral Lipat Dua: Dasar', 'Integral Lipat Dua', 'Matematika Dasar B')];
   final ai = AiCfg();
 
   ThemeMode themeMode = ThemeMode.system;
@@ -340,37 +282,42 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Q get question => q ??= genQ(diff);
-  void nextQ() {
-    q = null;
-    ans = null;
+  /// Mencatat hasil satu jawaban latihan ke state lokal (progres, XP, riwayat).
+  void recordPractice(PracticeQuestion q, AnswerOutcome o) {
+    final key = topicShort(q.topicId);
+    if (o.mastery != null) {
+      mast[key] = o.mastery!.clamp(0, 100).toInt();
+    } else {
+      final already = solvedIds.contains(q.id);
+      mast[key] = ((mast[key] ?? 0) + masteryDelta(q.difficulty, o.correct, alreadyCorrect: already)).clamp(0, 100).toInt();
+    }
+    if (o.correct) {
+      solvedIds.add(q.id);
+      streak++;
+    } else {
+      streak = 0;
+    }
+    xp += o.xpEarned;
+    diff = kDifficulties.indexOf(o.nextDifficulty) + 1;
+    addH('Latihan $key: ${o.correct ? 'benar' : 'salah'} (tingkat ${q.difficulty})');
     notifyListeners();
   }
 
-  void answer(int i) {
-    final qq = question;
-    if (ans != null) return;
-    ans = i;
-    final ok = qq.o[i] == qq.ok;
-    if (ok) {
-      mast[qq.t] = min(100, mast[qq.t]! + 8);
-      streak++;
-      xp += 10 * qq.d;
-      correctCount++;
-      if (mast[qq.t]! >= 70 && !certificates.any((c) => c['title'] == 'Penguasaan ${qq.t}')) {
-        issueCertificate('Penguasaan ${qq.t}', mast[qq.t]!);
+  /// Menutup sesi: catat riwayat dan terbitkan sertifikat bila memenuhi syarat.
+  void finishPractice(PracticeSession s, {bool quit = false, bool certificateFromServer = false}) {
+    if (s.finished) return;
+    s.finished = true;
+    final key = topicShort(s.topicId);
+    addH('Kuis adaptif $key: skor ${s.score} (${s.correct}/${s.answered}) +${s.xp} XP${quit ? ' (dihentikan)' : ''}');
+    if (certificateFromServer || s.eligibleForCertificate(quit: quit)) {
+      final title = 'Kuis Adaptif $key';
+      final idx = certificates.indexWhere((c) => c['title'] == title);
+      if (idx < 0) {
+        issueCertificate(title, s.score);
+      } else if ((certificates[idx]['score'] as int? ?? 0) < s.score) {
+        certificates[idx] = {...certificates[idx], 'score': s.score, 'issued': DateTime.now().toIso8601String().substring(0, 10)};
       }
-      final n = min(5, diff + 1);
-      lv = n > diff ? 'Level soal naik ke $n.' : 'Level soal sudah maksimal.';
-      diff = n;
-    } else {
-      mast[qq.t] = max(0, mast[qq.t]! - 6);
-      streak = 0;
-      final n = max(1, diff - 1);
-      lv = n < diff ? 'Level soal turun ke $n.' : 'Level soal tetap di dasar.';
-      diff = n;
     }
-    addH('Latihan ${qq.t}: ${ok ? 'benar' : 'salah'} (level ${qq.d})');
     notifyListeners();
   }
 }
